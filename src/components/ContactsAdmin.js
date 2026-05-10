@@ -1,484 +1,444 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import './ContactsAdmin.css';
 import NavbarAdmin from './NavbarAdmin';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { 
+  faEnvelopeOpen, 
+  faArrowRotateRight, 
+  faPeopleGroup, 
+  faExclamationTriangle, 
+  faQuestionCircle, 
+  faEnvelope,
+  faSearch,
+  faXmarkCircle,
+  faPhone,
+  faCalendar,
+  faMessage,
+  faEye,
+  faTrash,
+  faUserCircle,
+  faChevronLeft,
+  faChevronRight,
+  faSpinner
+} from '@fortawesome/free-solid-svg-icons';
 
 export default function ContactsAdmin() {
-    const [contacts, setContacts] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const [selectedContact, setSelectedContact] = useState(null);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [filterChoice, setFilterChoice] = useState('all');
-    const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage] = useState(10);
+  const [contacts, setContacts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [selectedContact, setSelectedContact] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterChoice, setFilterChoice] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
 
-    // Fetch contacts from API
-    useEffect(() => {
-        fetchContacts();
-    }, []);
+  useEffect(() => {
+    fetchContacts();
+  }, []);
 
-    const fetchContacts = async () => {
-        try {
-            setLoading(true);
-            const response = await axios.get('http://127.0.0.1:8000/api/AfficherListContacts');
-            setContacts(response.data);
-            setError(null);
-        } catch (err) {
-            console.error('Error fetching contacts:', err);
-            setError('Erreur de chargement des contacts. Veuillez réessayer.');
-        } finally {
-            setLoading(false);
-        }
+  const fetchContacts = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get('http://127.0.0.1:8000/api/AfficherListContacts');
+      setContacts(response.data);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching contacts:', err);
+      setError('Erreur de chargement des contacts. Veuillez réessayer.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredContacts = contacts.filter(contact => {
+    const matchesSearch = 
+      contact.nomContact?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      contact.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      contact.numTel?.includes(searchTerm) ||
+      contact.message?.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesFilter = 
+      filterChoice === 'all' || 
+      contact.choix === filterChoice ||
+      contact.autre_choix === filterChoice;
+
+    return matchesSearch && matchesFilter;
+  });
+
+  const uniqueChoices = [...new Set(contacts.map(contact => contact.choix || contact.autre_choix).filter(Boolean))];
+
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentContacts = filteredContacts.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredContacts.length / itemsPerPage);
+
+  const handleViewDetails = (contact) => {
+    setSelectedContact(contact);
+  };
+
+  const handleCloseModal = () => {
+    setSelectedContact(null);
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    const options = { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
     };
+    return new Date(dateString).toLocaleDateString('fr-FR', options);
+  };
 
-    // Filter contacts based on search and filter
-    const filteredContacts = contacts.filter(contact => {
-        const matchesSearch = 
-            contact.nomContact?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            contact.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            contact.numTel?.includes(searchTerm) ||
-            contact.message?.toLowerCase().includes(searchTerm.toLowerCase());
+  const getChoiceLabel = (contact) => {
+    return contact.choix || contact.autre_choix || 'Non spécifié';
+  };
 
-        const matchesFilter = 
-            filterChoice === 'all' || 
-            contact.choix === filterChoice ||
-            contact.autre_choix === filterChoice;
-
-        return matchesSearch && matchesFilter;
-    });
-
-    // Get unique choices for filter dropdown
-    const uniqueChoices = [...new Set(contacts.map(contact => contact.choix || contact.autre_choix).filter(Boolean))];
-
-    // Pagination logic
-    const indexOfLastItem = currentPage * itemsPerPage;
-    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-    const currentContacts = filteredContacts.slice(indexOfFirstItem, indexOfLastItem);
-    const totalPages = Math.ceil(filteredContacts.length / itemsPerPage);
-
-    const handleViewDetails = (contact) => {
-        setSelectedContact(contact);
+  const getPriorityColor = (choice) => {
+    const priorityMap = {
+      'urgent': 'red',
+      'important': 'orange',
+      'information': 'blue',
+      'réclamation': 'red',
+      'suggestion': 'green',
+      'question': 'purple'
     };
-
-    const handleCloseModal = () => {
-        setSelectedContact(null);
+    const color = priorityMap[choice?.toLowerCase()] || 'gray';
+    const bgMap = {
+      red: 'bg-red-100 text-red-800',
+      orange: 'bg-orange-100 text-orange-800',
+      blue: 'bg-blue-100 text-blue-800',
+      green: 'bg-green-100 text-green-800',
+      purple: 'bg-purple-100 text-purple-800',
+      gray: 'bg-gray-100 text-gray-800'
     };
+    return bgMap[color];
+  };
 
-    const handleDeleteContact = async (id) => {
-        if (window.confirm('Êtes-vous sûr de vouloir supprimer ce contact ?')) {
-            try {
-                await axios.delete(`http://127.0.0.1:8000/api/contacts/${id}`);
-                setContacts(contacts.filter(contact => contact.id !== id));
-                alert('Contact supprimé avec succès!');
-            } catch (err) {
-                alert('Erreur lors de la suppression du contact.');
-            }
-        }
-    };
+  const stats = [
+    { 
+      label: 'Total Contacts', 
+      value: contacts.length, 
+      icon: faPeopleGroup,
+      bgClass: 'bg-gradient-to-r from-blue-600 to-blue-500'
+    },
+    { 
+      label: 'Contacts Urgents', 
+      value: contacts.filter(c => c.choix?.toLowerCase().includes('urgent')).length, 
+      icon: faExclamationTriangle,
+      bgClass: 'bg-gradient-to-r from-red-600 to-red-500'
+    },
+    { 
+      label: 'Questions', 
+      value: contacts.filter(c => c.choix?.toLowerCase().includes('question')).length, 
+      icon: faQuestionCircle,
+      bgClass: 'bg-gradient-to-r from-purple-600 to-purple-500'
+    },
+    { 
+      label: 'Emails Uniques', 
+      value: new Set(contacts.map(c => c.email)).size, 
+      icon: faEnvelope,
+      bgClass: 'bg-gradient-to-r from-green-600 to-green-500'
+    }
+  ];
 
-    const formatDate = (dateString) => {
-        const options = { 
-            year: 'numeric', 
-            month: 'long', 
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        };
-        return new Date(dateString).toLocaleDateString('fr-FR', options);
-    };
-
-    const getChoiceLabel = (contact) => {
-        return contact.choix || contact.autre_choix || 'Non spécifié';
-    };
-
-    const getPriorityColor = (choice) => {
-        const priorityMap = {
-            'urgent': 'danger',
-            'important': 'warning',
-            'information': 'info',
-            'réclamation': 'danger',
-            'suggestion': 'success',
-            'question': 'primary'
-        };
-        return priorityMap[choice?.toLowerCase()] || 'secondary';
-    };
-
-  
-
-    return (
-        <div>
-            <NavbarAdmin />
-        <div className="contacts-admin-container">
-            {/* Header */}
-            <div className="contacts-header mb-4">
-                <div className="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h1 className="page-title">
-                            <i className="bi bi-envelope-paper me-3"></i>
-                            Gestion des Contacts
-                        </h1>
-                        <p className="page-subtitle text-muted">
-                            {filteredContacts.length} contact(s) trouvé(s)
-                        </p>
-                    </div>
-                    <div className="d-flex gap-2">
-                        <button 
-                            className="btn btn-outline-primary"
-                            onClick={fetchContacts}
-                            disabled={loading}
-                        >
-                            <i className="bi bi-arrow-clockwise me-2"></i>
-                            Actualiser
-                        </button>
-                    </div>
-                </div>
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <NavbarAdmin />
+      
+      <div className="container mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
+          <div>
+            <div className="flex items-center space-x-3 mb-2">
+              <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                <FontAwesomeIcon icon={faEnvelopeOpen} className="text-2xl text-blue-600" />
+              </div>
+              <h1 className="text-2xl md:text-3xl font-bold text-blue-950">
+                Gestion des Contacts
+              </h1>
             </div>
-
-            {/* Stats Cards */}
-            <div className="row mb-4">
-                <div className="col-md-3">
-                    <div className="card stat-card bg-primary text-white">
-                        <div className="card-body">
-                            <div className="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <h5 className="stat-value">{contacts.length}</h5>
-                                    <p className="stat-label">Total Contacts</p>
-                                </div>
-                                <i className="bi bi-people-fill stat-icon"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div className="col-md-3">
-                    <div className="card stat-card bg-warning text-white">
-                        <div className="card-body">
-                            <div className="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <h5 className="stat-value">
-                                        {contacts.filter(c => c.choix?.toLowerCase().includes('urgent')).length}
-                                    </h5>
-                                    <p className="stat-label">Contacts Urgents</p>
-                                </div>
-                                <i className="bi bi-exclamation-triangle-fill stat-icon"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div className="col-md-3">
-                    <div className="card stat-card bg-success text-white">
-                        <div className="card-body">
-                            <div className="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <h5 className="stat-value">
-                                        {contacts.filter(c => c.choix?.toLowerCase().includes('question')).length}
-                                    </h5>
-                                    <p className="stat-label">Questions</p>
-                                </div>
-                                <i className="bi bi-question-circle-fill stat-icon"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div className="col-md-3">
-                    <div className="card stat-card bg-info text-white">
-                        <div className="card-body">
-                            <div className="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <h5 className="stat-value">
-                                        {new Set(contacts.map(c => c.email)).size}
-                                    </h5>
-                                    <p className="stat-label">Emails Uniques</p>
-                                </div>
-                                <i className="bi bi-envelope-fill stat-icon"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Filters */}
-            <div className="card mb-4">
-                <div className="card-body">
-                    <div className="row g-3">
-                        <div className="col-md-6">
-                            <div className="input-group">
-                                <span className="input-group-text">
-                                    <i className="bi bi-search"></i>
-                                </span>
-                                <input
-                                    type="text"
-                                    className="form-control"
-                                    placeholder="Rechercher par nom, email, téléphone ou message..."
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                />
-                            </div>
-                        </div>
-                        <div className="col-md-4">
-                            <select
-                                className="form-select"
-                                value={filterChoice}
-                                onChange={(e) => setFilterChoice(e.target.value)}
-                            >
-                                <option value="all">Tous les types</option>
-                                {uniqueChoices.map((choice, index) => (
-                                    <option key={index} value={choice}>
-                                        {choice}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                        <div className="col-md-2">
-                            <button 
-                                className="btn btn-outline-secondary w-100"
-                                onClick={() => {
-                                    setSearchTerm('');
-                                    setFilterChoice('all');
-                                }}
-                            >
-                                <i className="bi bi-x-circle me-2"></i>
-                                Réinitialiser
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Contacts Table */}
-            <div className="card">
-                <div className="card-body">
-                    {loading ? (
-                        <div className="text-center py-5">
-                            <div className="spinner-border text-primary" role="status">
-                                <span className="visually-hidden">Chargement...</span>
-                            </div>
-                            <p className="mt-3">Chargement des contacts...</p>
-                        </div>
-                    ) : error ? (
-                        <div className="alert alert-danger">
-                            <i className="bi bi-exclamation-triangle me-2"></i>
-                            {error}
-                            <button 
-                                className="btn btn-sm btn-outline-danger ms-3"
-                                onClick={fetchContacts}
-                            >
-                                Réessayer
-                            </button>
-                        </div>
-                    ) : filteredContacts.length === 0 ? (
-                        <div className="text-center py-5">
-                            <i className="bi bi-inbox text-muted" style={{ fontSize: '3rem' }}></i>
-                            <h4 className="mt-3">Aucun contact trouvé</h4>
-                            <p className="text-muted">Aucun contact ne correspond à vos critères de recherche.</p>
-                        </div>
-                    ) : (
-                        <>
-                            <div className="table-responsive">
-                                <table className="table table-hover">
-                                    <thead>
-                                        <tr>
-                                            <th>Nom</th>
-                                            <th>Téléphone</th>
-                                            <th>Email</th>
-                                            <th>Type</th>
-                                            <th>Message</th>
-                                            <th>Date</th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {currentContacts.map((contact, index) => (
-                                            <tr key={index}>
-                                                <td>
-                                                    <div className="d-flex align-items-center">
-                                                        <div className="avatar-circle me-3">
-                                                            {contact.nomContact?.charAt(0).toUpperCase()}
-                                                        </div>
-                                                        <div>
-                                                            <strong>{contact.nomContact}</strong>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td>
-                                                    <a href={`tel:${contact.numTel}`} className="text-decoration-none">
-                                                        <i className="bi bi-telephone me-2"></i>
-                                                        {contact.numTel}
-                                                    </a>
-                                                </td>
-                                                <td>
-                                                    <a href={`mailto:${contact.email}`} className="text-decoration-none">
-                                                        <i className="bi bi-envelope me-2"></i>
-                                                        {contact.email}
-                                                    </a>
-                                                </td>
-                                                <td>
-                                                    <span className={`badge bg-${getPriorityColor(getChoiceLabel(contact))}`}>
-                                                        {getChoiceLabel(contact)}
-                                                    </span>
-                                                </td>
-                                                <td>
-                                                    <div className="message-preview">
-                                                        {contact.message?.length > 50 
-                                                            ? `${contact.message.substring(0, 50)}...`
-                                                            : contact.message
-                                                        }
-                                                    </div>
-                                                </td>
-                                                <td>
-                                                    {contact.created_at ? (
-                                                        <small className="text-muted">
-                                                            {formatDate(contact.created_at)}
-                                                        </small>
-                                                    ) : (
-                                                        <small className="text-muted">N/A</small>
-                                                    )}
-                                                </td>
-                                                <td>
-                                                    <div className="btn-group" role="group">
-                                                        <button
-                                                            className="btn btn-sm btn-outline-primary"
-                                                            onClick={() => handleViewDetails(contact)}
-                                                            title="Voir les détails"
-                                                        >
-                                                            <i className="bi bi-eye"></i>
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            {/* Pagination */}
-                            {totalPages > 1 && (
-                                <nav className="mt-4">
-                                    <ul className="pagination justify-content-center">
-                                        <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
-                                            <button
-                                                className="page-link"
-                                                onClick={() => setCurrentPage(currentPage - 1)}
-                                                disabled={currentPage === 1}
-                                            >
-                                                Précédent
-                                            </button>
-                                        </li>
-                                        
-                                        {[...Array(totalPages)].map((_, index) => (
-                                            <li 
-                                                key={index} 
-                                                className={`page-item ${currentPage === index + 1 ? 'active' : ''}`}
-                                            >
-                                                <button
-                                                    className="page-link"
-                                                    onClick={() => setCurrentPage(index + 1)}
-                                                >
-                                                    {index + 1}
-                                                </button>
-                                            </li>
-                                        ))}
-                                        
-                                        <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
-                                            <button
-                                                className="page-link"
-                                                onClick={() => setCurrentPage(currentPage + 1)}
-                                                disabled={currentPage === totalPages}
-                                            >
-                                                Suivant
-                                            </button>
-                                        </li>
-                                    </ul>
-                                </nav>
-                            )}
-                        </>
-                    )}
-                </div>
-            </div>
-
-            {/* Contact Detail Modal */}
-            {selectedContact && (
-                <div className="modal fade show d-block" tabIndex="-1" style={{ background: 'rgba(0,0,0,0.5)' }}>
-                    <div className="modal-dialog modal-lg">
-                        <div className="modal-content">
-                            <div className="modal-header bg-primary text-white">
-                                <h5 className="modal-title">
-                                    <i className="bi bi-person-circle me-2"></i>
-                                    Détails du Contact
-                                </h5>
-                                <button
-                                    type="button"
-                                    className="btn-close btn-close-white"
-                                    onClick={handleCloseModal}
-                                ></button>
-                            </div>
-                            <div className="modal-body">
-                                <div className="row">
-                                    <div className="col-md-4 text-center">
-                                        <div className="avatar-modal mb-3">
-                                            {selectedContact.nomContact?.charAt(0).toUpperCase()}
-                                        </div>
-                                        <h5>{selectedContact.nomContact}</h5>
-                                        <span className={`badge bg-${getPriorityColor(getChoiceLabel(selectedContact))} fs-6`}>
-                                            {getChoiceLabel(selectedContact)}
-                                        </span>
-                                    </div>
-                                    <div className="col-md-8">
-                                        <div className="mb-3">
-                                            <h6 className="text-muted mb-2">
-                                                <i className="bi bi-telephone me-2"></i>
-                                                Contact
-                                            </h6>
-                                            <p>
-                                                <a href={`tel:${selectedContact.numTel}`} className="text-decoration-none">
-                                                    {selectedContact.numTel}
-                                                </a>
-                                                <br />
-                                                <a href={`mailto:${selectedContact.email}`} className="text-decoration-none">
-                                                    {selectedContact.email}
-                                                </a>
-                                            </p>
-                                        </div>
-                                        <div className="mb-3">
-                                            <h6 className="text-muted mb-2">
-                                                <i className="bi bi-calendar me-2"></i>
-                                                Date de contact
-                                            </h6>
-                                            <p>
-                                                {selectedContact.created_at 
-                                                    ? formatDate(selectedContact.created_at)
-                                                    : 'Non disponible'
-                                                }
-                                            </p>
-                                        </div>
-                                        <div>
-                                            <h6 className="text-muted mb-2">
-                                                <i className="bi bi-chat-left-text me-2"></i>
-                                                Message
-                                            </h6>
-                                            <div className="card">
-                                                <div className="card-body bg-light">
-                                                    <p className="mb-0">{selectedContact.message}</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="modal-footer">
-                                <button
-                                    type="button"
-                                    className="btn btn-primary"
-                                    onClick={handleCloseModal}
-                                >
-                                    Fermer
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <p className="text-gray-600 ml-14">
+              {filteredContacts.length} contact(s) trouvé(s)
+            </p>
+          </div>
+          
+          <button 
+            onClick={fetchContacts}
+            disabled={loading}
+            className="mt-4 md:mt-0 flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50"
+          >
+            <FontAwesomeIcon icon={faArrowRotateRight} className={loading ? 'animate-spin' : ''} />
+            <span>Actualiser</span>
+          </button>
         </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {stats.map((stat, index) => (
+            <div key={index} className={`${stat.bgClass} rounded-2xl shadow-lg p-6 text-white transform hover:scale-105 transition-all duration-300`}>
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="text-3xl font-bold">{stat.value}</p>
+                  <p className="text-sm opacity-90 mt-1">{stat.label}</p>
+                </div>
+                <FontAwesomeIcon icon={stat.icon} className="text-4xl opacity-50" />
+              </div>
+            </div>
+          ))}
         </div>
-    );
+
+        {/* Filters */}
+        <div className="bg-white rounded-2xl shadow-md p-6 mb-8">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1 relative">
+              <FontAwesomeIcon icon={faSearch} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
+                placeholder="Rechercher par nom, email, téléphone ou message..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            
+            <select
+              className="px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+              value={filterChoice}
+              onChange={(e) => setFilterChoice(e.target.value)}
+            >
+              <option value="all">Tous les types</option>
+              {uniqueChoices.map((choice, index) => (
+                <option key={index} value={choice}>{choice}</option>
+              ))}
+            </select>
+            
+            <button
+              onClick={() => {
+                setSearchTerm('');
+                setFilterChoice('all');
+              }}
+              className="flex items-center justify-center space-x-2 px-6 py-3 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
+            >
+              <FontAwesomeIcon icon={faXmarkCircle} />
+              <span>Réinitialiser</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Contacts Table */}
+        <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+          {loading ? (
+            <div className="text-center py-12">
+              <FontAwesomeIcon icon={faSpinner} className="text-4xl text-blue-600 animate-spin" />
+              <p className="mt-4 text-gray-600">Chargement des contacts...</p>
+            </div>
+          ) : error ? (
+            <div className="text-center py-12">
+              <div className="bg-red-50 text-red-800 p-4 rounded-xl max-w-md mx-auto">
+                <p>{error}</p>
+                <button
+                  onClick={fetchContacts}
+                  className="mt-3 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
+                >
+                  Réessayer
+                </button>
+              </div>
+            </div>
+          ) : filteredContacts.length === 0 ? (
+            <div className="text-center py-12">
+              <FontAwesomeIcon icon={faEnvelopeOpen} className="text-5xl text-gray-300 mb-4" />
+              <h3 className="text-xl font-semibold text-gray-600 mb-2">Aucun contact trouvé</h3>
+              <p className="text-gray-500">Aucun contact ne correspond à vos critères de recherche.</p>
+            </div>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-blue-950 text-white">
+                    <tr>
+                      <th className="px-6 py-4 text-left text-sm font-semibold">Nom</th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold">Téléphone</th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold">Email</th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold">Type</th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold">Message</th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold">Date</th>
+                      <th className="px-6 py-4 text-center text-sm font-semibold">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {currentContacts.map((contact, index) => (
+                      <tr key={index} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-500 rounded-full flex items-center justify-center text-white font-bold">
+                              {contact.nomContact?.charAt(0).toUpperCase()}
+                            </div>
+                            <span className="font-medium text-gray-800">{contact.nomContact}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <a href={`tel:${contact.numTel}`} className="text-blue-600 hover:text-blue-800 transition-colors">
+                            {contact.numTel}
+                          </a>
+                        </td>
+                        <td className="px-6 py-4">
+                          <a href={`mailto:${contact.email}`} className="text-blue-600 hover:text-blue-800 transition-colors text-sm">
+                            {contact.email}
+                          </a>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getPriorityColor(getChoiceLabel(contact))}`}>
+                            {getChoiceLabel(contact)}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="text-gray-600 text-sm max-w-xs truncate">
+                            {contact.message?.length > 60 ? `${contact.message.substring(0, 60)}...` : contact.message}
+                          </p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="text-gray-500 text-sm whitespace-nowrap">
+                            {formatDate(contact.created_at)}
+                          </p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center justify-center space-x-2">
+                            <button
+                              onClick={() => handleViewDetails(contact)}
+                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                              title="Voir les détails"
+                            >
+                              <FontAwesomeIcon icon={faEye} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex justify-center items-center space-x-2 py-6 border-t border-gray-200">
+                  <button
+                    onClick={() => setCurrentPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <FontAwesomeIcon icon={faChevronLeft} />
+                  </button>
+                  
+                  <div className="flex space-x-2">
+                    {[...Array(totalPages)].map((_, index) => (
+                      <button
+                        key={index}
+                        onClick={() => setCurrentPage(index + 1)}
+                        className={`w-10 h-10 rounded-lg transition-all duration-300 ${
+                          currentPage === index + 1
+                            ? 'bg-blue-950 text-white'
+                            : 'border border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        {index + 1}
+                      </button>
+                    ))}
+                  </div>
+                  
+                  <button
+                    onClick={() => setCurrentPage(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <FontAwesomeIcon icon={faChevronRight} />
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Contact Detail Modal */}
+      {selectedContact && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={handleCloseModal}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-gradient-to-r from-blue-950 to-blue-800 text-white p-6 rounded-t-2xl">
+              <div className="flex justify-between items-center">
+                <h3 className="text-xl font-bold flex items-center">
+                  <FontAwesomeIcon icon={faUserCircle} className="mr-2" />
+                  Détails du Contact
+                </h3>
+                <button onClick={handleCloseModal} className="text-white hover:text-gray-200 transition-colors">
+                  ✕
+                </button>
+              </div>
+            </div>
+            
+            <div className="p-6">
+              <div className="flex flex-col md:flex-row gap-6">
+                <div className="text-center md:text-left">
+                  <div className="w-24 h-24 bg-gradient-to-br from-blue-600 to-blue-500 rounded-full flex items-center justify-center text-white text-3xl font-bold mx-auto md:mx-0">
+                    {selectedContact.nomContact?.charAt(0).toUpperCase()}
+                  </div>
+                  <h4 className="text-xl font-bold text-gray-800 mt-3">{selectedContact.nomContact}</h4>
+                  <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold mt-2 ${getPriorityColor(getChoiceLabel(selectedContact))}`}>
+                    {getChoiceLabel(selectedContact)}
+                  </span>
+                </div>
+                
+                <div className="flex-1 space-y-4">
+                  <div>
+                    <h5 className="text-sm font-semibold text-gray-500 mb-2">
+                      <FontAwesomeIcon icon={faPhone} className="mr-2 text-blue-600" />
+                      Contact
+                    </h5>
+                    <p>
+                      <a href={`tel:${selectedContact.numTel}`} className="text-blue-600 hover:underline">
+                        {selectedContact.numTel}
+                      </a>
+                      <br />
+                      <a href={`mailto:${selectedContact.email}`} className="text-blue-600 hover:underline">
+                        {selectedContact.email}
+                      </a>
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <h5 className="text-sm font-semibold text-gray-500 mb-2">
+                      <FontAwesomeIcon icon={faCalendar} className="mr-2 text-blue-600" />
+                      Date de contact
+                    </h5>
+                    <p className="text-gray-700">{formatDate(selectedContact.created_at)}</p>
+                  </div>
+                  
+                  <div>
+                    <h5 className="text-sm font-semibold text-gray-500 mb-2">
+                      <FontAwesomeIcon icon={faMessage} className="mr-2 text-blue-600" />
+                      Message
+                    </h5>
+                    <div className="bg-gray-50 rounded-xl p-4">
+                      <p className="text-gray-700">{selectedContact.message}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="border-t border-gray-200 p-6 flex justify-end">
+              <button
+                onClick={handleCloseModal}
+                className="px-6 py-2 bg-blue-950 text-white rounded-xl hover:bg-blue-800 transition-colors"
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }

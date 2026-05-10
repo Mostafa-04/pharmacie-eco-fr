@@ -32,7 +32,7 @@ export default function App() {
             <Route path="/contact" element={<Contact />} />
             <Route path="/ajouter-produit" element={<AjouterProduit/>} />
             <Route path="/ajouter-categorie" element={<AjouterCategorie/>} />
-            <Route path="/panier" element={<Panier Pa={panier}/>} />
+            <Route path="/panier" element={<Panier Pa={panier} setPa={setPanier}/>} />
             <Route path="/login" element={<Login/>} />
             <Route path="/detail/:id" element={<Detail ajouter={ajouterAuPanier}/>} />
             <Route path="/contacts" element={<ContactsAdmin/>} />
